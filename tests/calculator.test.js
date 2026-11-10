@@ -4,7 +4,7 @@ describe("Service calculator", () => {
   test("additionne deux nombres", () => {
     expect(addition(2, 3)).toBe(5);
   });
-
+  
   test("calcule un prix TTC avec 20 % de TVA", () => {
     expect(calculerTTC(100, 20)).toBe(120);
   });
