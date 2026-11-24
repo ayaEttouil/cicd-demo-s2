@@ -2,16 +2,29 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de l'image a deployer"
+        required: true
+        type: string
 
 jobs:
-  connexion:
+  deploy:
     runs-on: ubuntu-latest
 
     env:
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
+      TAG: ${{ inputs.tag }}
 
     steps:
+      - name: Valider le tag
+        run: |
+          if [[ ! "$TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "Tag invalide"
+            exit 1
+          fi
+
       - name: Preparer SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -28,12 +41,21 @@ jobs:
 
       - name: Tester la connexion SSH
         run: |
-          ssh -i ~/.ssh/id_ed25519 \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
+          ssh -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
             "$SSH_USER@$SSH_HOST" "whoami && docker ps"
+
+      - name: Deployer sur EC2
+        run: |
+          ssh -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "cd /opt/atlas && ./deploy.sh '$TAG'"
+
+      - name: Verifier application
+        run: |
+          curl --fail --max-time 10 \
+            "http://$SSH_HOST/api/health"
 
       - name: Nettoyer la cle privee
         if: always()
